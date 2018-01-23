@@ -1,0 +1,10 @@
+[Unit]
+Description=Heihei Server Service
+After=multi-user.target
+
+[Service]
+Type=idle
+ExecStart=/home/pi/heihei
+
+[Install]
+WantedBy=multi-user.target
