@@ -5,6 +5,8 @@ After=multi-user.target
 [Service]
 Type=idle
 ExecStart=/home/pi/heihei
+Restart=on-failure
+RestartSec=20
 
 [Install]
 WantedBy=multi-user.target
