@@ -3,32 +3,33 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 const (
 	version = 1
 )
 
+var logger *log.Logger
+var config = Configuration{}
+
 type Configuration struct {
 	Latitude  float64 // the latitude of the device
 	Longitude float64 // the longitude of the device
 }
 
-var config = Configuration{}
+// initLogger creates a new logger that writes to out
+func initLogger(out io.Writer) {
+	logger = log.New(out, "", log.Ldate|log.Ltime|log.Lshortfile)
+}
 
 // loadConfiguration loads the server configuration
-func loadConfiguration() error {
-	// open the configuration file that is in the same directory as the executable
-	ex, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	file, err := os.Open(filepath.Join(filepath.Dir(ex), "configuration.json"))
+func loadConfiguration(path string) error {
+	file, err := os.Open(filepath.Join(path, "configuration.json"))
 	if err != nil {
 		return err
 	}
@@ -44,45 +45,66 @@ func loadConfiguration() error {
 
 // about reports about the server
 func about(w http.ResponseWriter, r *http.Request) {
+	logger.Printf("* about request\n")
 	fmt.Fprintf(w, "Heihei: version %2d\n", version)
+	fmt.Fprintf(w, "        at (%v, %v)\n", config.Latitude, config.Longitude)
 }
 
-// howdy echoes howdy
-func howdy(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Howdy, this is Heihei at (%v, %v)\n", config.Latitude, config.Longitude)
-}
+// light controls the RF controlled light
+func light(w http.ResponseWriter, r *http.Request) {
+	logger.Printf("* light request\n")
 
-// blink turns the plug off and on
-func blink(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "I am going to blink now\n")
-	var msg string
-	on := true
-	for i := 0; i < 10; i++ {
-		if on {
-			msg = "on"
-		} else {
-			msg = "off"
-		}
-		fmt.Fprintf(w, "\t%v\n", msg)
-		setPlug(plugOne, on)
-		on = !on
-		time.Sleep(10 * time.Second)
+	modes, ok := r.URL.Query()["mode"]
+	if !ok || len(modes) < 1 {
+		fmt.Fprintf(w, "Url Param 'mode' is missing\n")
+		return
 	}
-	fmt.Fprintf(w, "gorffenedig\n")
+
+	switch modes[0] {
+	case "on":
+		fmt.Fprintf(w, "on\n")
+		setPlug(plugOne, true)
+	case "off":
+		fmt.Fprintf(w, "off\n")
+		setPlug(plugOne, false)
+	default:
+		fmt.Fprintf(w, "Url Param 'mode' value is unknown\n")
+		return
+	}
+	return
 }
 
 func main() {
+	// get the directory of the executable
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	path := filepath.Dir(ex)
+
+	// setup logging
+	// If the logfile doesn't exist, create it. Otherwise append to it.
+	f, err := os.OpenFile(filepath.Join(path, "heihei.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	initLogger(f)
+
+	logger.Printf("***************\n")
+	logger.Printf("starting Heihei\n")
+
 	// load the configuration
-	if err := loadConfiguration(); err != nil {
-		log.Fatal(err)
+	if err := loadConfiguration(path); err != nil {
+		logger.Fatal(err)
 	}
 	// initialise the plugs
 	if err := initPlug(); err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
-	http.HandleFunc("/howdy", howdy)
+	// register the handlers and listen
 	http.HandleFunc("/about", about)
-	http.HandleFunc("/blink", blink)
-	log.Fatal(http.ListenAndServe(":8000", nil))
+	http.HandleFunc("/light", light)
+	logger.Fatal(http.ListenAndServe(":8000", nil))
 }
