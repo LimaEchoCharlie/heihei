@@ -10,8 +10,51 @@ import (
 	"periph.io/x/periph/host/rpi"
 )
 
+// pin definitions
+var (
+	// encoder (by board position)
+	d0 = pin{rpi.P1_11}
+	d1 = pin{rpi.P1_15}
+	d2 = pin{rpi.P1_16}
+	d3 = pin{rpi.P1_13}
+	// modulator mode
+	mode = pin{rpi.P1_18}
+	// modulator enable
+	enable = pin{rpi.P1_22}
+)
+
+// mutex to protect pin writes
+var mutex = &sync.Mutex{}
+
+// save last error
+var pinError error
+
+// plug ids
+const (
+	plugAll = iota
+	plugOne
+	plugTwo
+)
+
 type pin struct {
 	gpio.PinIO
+}
+
+// clearPinError clears the saved error related to pin operations
+func clearPinError() {
+	pinError = nil
+}
+
+// setPinError saves not nil errors
+func setPinError(err error) {
+	if err != nil {
+		pinError = err
+	}
+}
+
+// lastPinError returns the last error from a pin operation
+func lastPinError() error {
+	return pinError
 }
 
 // out changes the level of the pin
@@ -33,29 +76,6 @@ func (p pin) on() (err error) {
 	return p.out(gpio.High)
 }
 
-// pin definitions
-var (
-	// encoder (by board position)
-	d0 = pin{rpi.P1_11}
-	d1 = pin{rpi.P1_15}
-	d2 = pin{rpi.P1_16}
-	d3 = pin{rpi.P1_13}
-	// modulator mode
-	mode = pin{rpi.P1_18}
-	// modulator enable
-	enable = pin{rpi.P1_22}
-)
-
-// mutex to protect pin writes
-var mutex = &sync.Mutex{}
-
-// plug ids
-const (
-	plugAll = iota
-	plugOne
-	plugTwo
-)
-
 // initPlug initialises the pins used to communicate with the plugs
 func initPlug() (err error) {
 	logger.Printf("initPlug\n")
@@ -63,6 +83,9 @@ func initPlug() (err error) {
 	// lock mutex
 	mutex.Lock()
 	defer mutex.Unlock()
+
+	// clear error
+	clearPinError()
 
 	// initialise periph
 	if _, err = host.Init(); err != nil {
@@ -80,7 +103,7 @@ func initPlug() (err error) {
 
 	// set modulator to ASK
 	mode.off()
-	return nil
+	return lastPinError()
 }
 
 // setPlug turns plug (with id) on or off
@@ -90,6 +113,9 @@ func setPlug(id int, on bool) error {
 	// lock mutex
 	mutex.Lock()
 	defer mutex.Unlock()
+
+	// clear error
+	clearPinError()
 
 	// set d2-d1-d0 depending on which plug
 	switch id {
@@ -130,5 +156,5 @@ func setPlug(id int, on bool) error {
 	// disable the modulator
 	enable.off()
 
-	return nil
+	return lastPinError()
 }

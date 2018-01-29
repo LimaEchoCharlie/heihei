@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	version = 1
+	version = 2
 )
 
 var logger *log.Logger
@@ -43,6 +43,16 @@ func loadConfiguration(path string) error {
 	return nil
 }
 
+// respond writes the http response and logs the action
+func respond(w http.ResponseWriter, msg string, code int) {
+	logger.Printf("Response [%v] %v\n", code, msg)
+	if code == http.StatusOK {
+		fmt.Fprintln(w, msg)
+	} else {
+		http.Error(w, msg, code)
+	}
+}
+
 // about reports about the server
 func about(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("* about request\n")
@@ -52,23 +62,31 @@ func about(w http.ResponseWriter, r *http.Request) {
 
 // light controls the RF controlled light
 func light(w http.ResponseWriter, r *http.Request) {
-	logger.Printf("* light request\n")
+	logger.Printf("* light request")
 
 	modes, ok := r.URL.Query()["mode"]
 	if !ok || len(modes) < 1 {
-		fmt.Fprintf(w, "Url Param 'mode' is missing\n")
+		respond(w, "Missing 'mode' value", http.StatusUnprocessableEntity)
 		return
 	}
 
-	switch modes[0] {
+	mode := modes[0]
+	logger.Printf("mode = %v", mode)
+	switch mode {
 	case "on":
-		fmt.Fprintf(w, "on\n")
-		setPlug(plugOne, true)
+		if err := setPlug(plugOne, true); err != nil {
+			respond(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		respond(w, "on", http.StatusOK)
 	case "off":
-		fmt.Fprintf(w, "off\n")
-		setPlug(plugOne, false)
+		if err := setPlug(plugOne, false); err != nil {
+			respond(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		respond(w, "off", http.StatusOK)
 	default:
-		fmt.Fprintf(w, "Url Param 'mode' value is unknown\n")
+		respond(w, fmt.Sprintf("Unknown 'mode' value '%v'", mode), http.StatusUnprocessableEntity)
 		return
 	}
 	return
