@@ -43,6 +43,11 @@ func loadConfiguration(path string) error {
 	return nil
 }
 
+// disableCache disables the client cache so that a request is sent to the server each and every time
+func disableCache(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+}
+
 // respond writes the http response and logs the action
 func respond(w http.ResponseWriter, msg string, code int) {
 	logger.Printf("Response [%v] %v\n", code, msg)
@@ -63,6 +68,8 @@ func about(w http.ResponseWriter, r *http.Request) {
 // light controls the RF controlled light
 func light(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("* light request")
+
+	disableCache(w)
 
 	modes, ok := r.URL.Query()["mode"]
 	if !ok || len(modes) < 1 {
