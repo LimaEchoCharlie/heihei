@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/kelvins/sunrisesunset"
+  packages = ["."]
+  revision = "1efe1a3fca443b2cd1161b66c284ad60918398e0"
+  version = "v1.0"
+
+[[projects]]
   name = "periph.io/x/periph"
   packages = [
     ".",
@@ -35,6 +41,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ad9bb5d2e46440263b5010741a4761df38c1d8765f4cf865ba0a814b2d8a3c61"
+  inputs-digest = "8bd18b1527ee1f26cb087f2b872500da3f35c2c546633e9fb62b83552f59fdcf"
   solver-name = "gps-cdcl"
   solver-version = 1

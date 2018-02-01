@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
+
+	astro "github.com/kelvins/sunrisesunset"
 )
 
 const (
@@ -15,9 +18,9 @@ const (
 )
 
 var logger *log.Logger
-var config = Configuration{}
+var config = configuration{}
 
-type Configuration struct {
+type configuration struct {
 	Latitude  float64 // the latitude of the device
 	Longitude float64 // the longitude of the device
 }
@@ -43,6 +46,21 @@ func loadConfiguration(path string) error {
 	return nil
 }
 
+// sunsetToday returns the time of today's sunset in the system's local time
+func sunsetToday(latitude, longitude float64) (time.Time, error) {
+	now := time.Now()       // local time now
+	_, offset := now.Zone() // offset in seconds
+
+	// GetSunriseSunset expects the UTC in units of hours
+	_, sunset, err := astro.GetSunriseSunset(latitude, longitude, float64(offset/3600), now)
+	if err != nil {
+		return sunset, err
+	}
+
+	// the date returned by GetSunriseSunset is the "zero" value so construct a new Time using the current time
+	return time.Date(now.Year(), now.Month(), now.Day(), sunset.Hour(), sunset.Minute(), sunset.Second(), 0, now.Location()), nil
+}
+
 // disableCache disables the client cache so that a request is sent to the server each and every time
 func disableCache(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -63,6 +81,17 @@ func about(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("* about request\n")
 	fmt.Fprintf(w, "Heihei: version %2d\n", version)
 	fmt.Fprintf(w, "        at (%v, %v)\n", config.Latitude, config.Longitude)
+}
+
+// sunset reports the time of sunset at the device location
+func sunset(w http.ResponseWriter, r *http.Request) {
+	logger.Printf("* sunset request\n")
+	sunset, err := sunsetToday(config.Latitude, config.Longitude)
+	if err != nil {
+		respond(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	respond(w, sunset.Format("Today's (Monday 2 January 2006) sunset is approximately at 15:04:05 MST"), http.StatusOK)
 }
 
 // light controls the RF controlled light
@@ -131,5 +160,6 @@ func main() {
 	// register the handlers and listen
 	http.HandleFunc("/about", about)
 	http.HandleFunc("/light", light)
+	http.HandleFunc("/sunset", sunset)
 	logger.Fatal(http.ListenAndServe(":8000", nil))
 }
