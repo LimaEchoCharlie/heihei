@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -77,14 +78,16 @@ func respond(w http.ResponseWriter, msg string, code int) {
 }
 
 // about reports about the server
-func about(w http.ResponseWriter, r *http.Request) {
+func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("* about request\n")
+	disableCache(w)
 	fmt.Fprintf(w, "Heihei: version %2d\n", version)
 	fmt.Fprintf(w, "        at (%v, %v)\n", config.Latitude, config.Longitude)
+	fmt.Fprintf(w, "        light is %v\n", light())
 }
 
 // sunset reports the time of sunset at the device location
-func sunset(w http.ResponseWriter, r *http.Request) {
+func sunsetHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("* sunset request\n")
 	sunset, err := sunsetToday(config.Latitude, config.Longitude)
 	if err != nil {
@@ -95,7 +98,7 @@ func sunset(w http.ResponseWriter, r *http.Request) {
 }
 
 // light controls the RF controlled light
-func light(w http.ResponseWriter, r *http.Request) {
+func lightHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("* light request")
 
 	disableCache(w)
@@ -110,16 +113,10 @@ func light(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("mode = %v", mode)
 	switch mode {
 	case "on":
-		if err := setPlug(plugOne, true); err != nil {
-			respond(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		setLight(true)
 		respond(w, "on", http.StatusOK)
 	case "off":
-		if err := setPlug(plugOne, false); err != nil {
-			respond(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		setLight(false)
 		respond(w, "off", http.StatusOK)
 	default:
 		respond(w, fmt.Sprintf("Unknown 'mode' value '%v'", mode), http.StatusUnprocessableEntity)
@@ -157,9 +154,15 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// start the light controller
+	startLightController(ctx)
+
 	// register the handlers and listen
-	http.HandleFunc("/about", about)
-	http.HandleFunc("/light", light)
-	http.HandleFunc("/sunset", sunset)
+	http.HandleFunc("/about", aboutHandler)
+	http.HandleFunc("/light", lightHandler)
+	http.HandleFunc("/sunset", sunsetHandler)
 	logger.Fatal(http.ListenAndServe(":8000", nil))
 }
