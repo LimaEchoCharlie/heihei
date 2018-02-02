@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,10 +13,9 @@ import (
 )
 
 const (
-	version = 2
+	version = 3
 )
 
-var logger *log.Logger
 var config = configuration{}
 
 type configuration struct {
@@ -26,13 +23,15 @@ type configuration struct {
 	Longitude float64 // the longitude of the device
 }
 
-// initLogger creates a new logger that writes to out
-func initLogger(out io.Writer) {
-	logger = log.New(out, "", log.Ldate|log.Ltime|log.Lshortfile)
-}
-
 // loadConfiguration loads the server configuration
-func loadConfiguration(path string) error {
+func loadConfiguration() error {
+	// get the directory of the executable
+	ex, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	path := filepath.Dir(ex)
+
 	file, err := os.Open(filepath.Join(path, "configuration.json"))
 	if err != nil {
 		return err
@@ -126,27 +125,17 @@ func lightHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// get the directory of the executable
-	ex, err := os.Executable()
-	if err != nil {
+	// initialise logging
+	if err := initLogging(); err != nil {
 		panic(err)
 	}
-	path := filepath.Dir(ex)
-
-	// setup logging
-	// If the logfile doesn't exist, create it. Otherwise append to it.
-	f, err := os.OpenFile(filepath.Join(path, "heihei.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-	initLogger(f)
+	defer stopLogging()
 
 	logger.Printf("***************\n")
 	logger.Printf("starting Heihei\n")
 
 	// load the configuration
-	if err := loadConfiguration(path); err != nil {
+	if err := loadConfiguration(); err != nil {
 		logger.Fatal(err)
 	}
 	// initialise the plugs
