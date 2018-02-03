@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
 
-# build the code for ARM 7 (e.g. raspberry pi)
-GOOS=linux GOARCH=arm GOARM=7 go build
+for var in "$@"; do
+    case "${var}" in
+    devel)
+        isDevel=true;;
+    esac
+done
+
+if [ "$isDevel" = true ]; then
+    echo "devel build"
+    go build -ldflags "-X main.devel=yes"
+else
+    echo "release build"
+    GOOS=linux GOARCH=arm GOARM=7 go build
+fi

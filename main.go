@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	astro "github.com/kelvins/sunrisesunset"
@@ -83,6 +84,9 @@ func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Heihei: version %2d\n", version)
 	fmt.Fprintf(w, "        at (%v, %v)\n", config.Latitude, config.Longitude)
 	fmt.Fprintf(w, "        light is %v\n", light())
+	if isDevel() {
+		fmt.Fprintf(w, "        DEVEL\n")
+	}
 }
 
 // sunset reports the time of sunset at the device location
@@ -96,7 +100,37 @@ func sunsetHandler(w http.ResponseWriter, r *http.Request) {
 	respond(w, sunset.Format("Today's (Monday 2 January 2006) sunset is approximately at 15:04:05 MST"), http.StatusOK)
 }
 
-// light controls the RF controlled light
+// getDuration extracts a duration from the query
+func getDuration(r *http.Request) (d time.Duration) {
+	var secs int
+	vals, ok := r.URL.Query()["secs"]
+	if !ok || len(vals) == 0 {
+		return 0
+	}
+	secs, err := strconv.Atoi(vals[0])
+	if err != nil {
+		return 0
+	}
+	return time.Duration(secs) * time.Second
+}
+
+// lightModeHandler deals with light requests when the mode is known
+func lightModeHandler(w http.ResponseWriter, r *http.Request, on bool) {
+	logger.Printf("mode = %v", on)
+	msg := "off"
+	if on {
+		msg = "on"
+	}
+	if d := getDuration(r); d > 0 {
+		respond(w, fmt.Sprintf("%v for %v", d, msg), http.StatusOK)
+		setLightForDuration(on, d)
+	} else {
+		respond(w, msg, http.StatusOK)
+		setLight(on)
+	}
+}
+
+// lightHandler controls the RF controlled light
 func lightHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("* light request")
 
@@ -108,15 +142,11 @@ func lightHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mode := modes[0]
-	logger.Printf("mode = %v", mode)
-	switch mode {
+	switch modes[0] {
 	case "on":
-		setLight(true)
-		respond(w, "on", http.StatusOK)
+		lightModeHandler(w, r, true)
 	case "off":
-		setLight(false)
-		respond(w, "off", http.StatusOK)
+		lightModeHandler(w, r, false)
 	default:
 		respond(w, fmt.Sprintf("Unknown 'mode' value '%v'", mode), http.StatusUnprocessableEntity)
 		return
@@ -138,11 +168,6 @@ func main() {
 	if err := loadConfiguration(); err != nil {
 		logger.Fatal(err)
 	}
-	// initialise the plugs
-	if err := initPlug(); err != nil {
-		logger.Fatal(err)
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

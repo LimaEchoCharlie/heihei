@@ -50,6 +50,7 @@ func setPinError(err error) {
 	if err != nil {
 		pinError = err
 	}
+	return
 }
 
 // lastPinError returns the last error from a pin operation
@@ -59,7 +60,12 @@ func lastPinError() error {
 
 // out changes the level of the pin
 func (p pin) out(l gpio.Level) (err error) {
+	if isDevel() {
+		return nil
+	}
+
 	err = p.Out(l)
+	setPinError(err)
 	if err != nil {
 		logger.Printf("%v %v failure %v\n", p, l, err)
 	}
@@ -78,8 +84,6 @@ func (p pin) on() (err error) {
 
 // initPlug initialises the pins used to communicate with the plugs
 func initPlug() (err error) {
-	logger.Printf("initPlug\n")
-
 	// lock mutex
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -88,7 +92,7 @@ func initPlug() (err error) {
 	clearPinError()
 
 	// initialise periph
-	if _, err = host.Init(); err != nil {
+	if _, err := host.Init(); err != nil {
 		return err
 	}
 
@@ -108,8 +112,6 @@ func initPlug() (err error) {
 
 // setPlug turns plug (with id) on or off
 func setPlug(id int, on bool) error {
-	logger.Printf("setPlug\n")
-
 	// lock mutex
 	mutex.Lock()
 	defer mutex.Unlock()
