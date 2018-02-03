@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -16,36 +13,6 @@ import (
 const (
 	version = 3
 )
-
-var config = configuration{}
-
-type configuration struct {
-	Latitude  float64 // the latitude of the device
-	Longitude float64 // the longitude of the device
-}
-
-// loadConfiguration loads the server configuration
-func loadConfiguration() error {
-	// get the directory of the executable
-	ex, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	path := filepath.Dir(ex)
-
-	file, err := os.Open(filepath.Join(path, "configuration.json"))
-	if err != nil {
-		return err
-	}
-
-	// decode json
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&config)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 // sunsetToday returns the time of today's sunset in the system's local time
 func sunsetToday(latitude, longitude float64) (time.Time, error) {
@@ -82,7 +49,8 @@ func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("* about request\n")
 	disableCache(w)
 	fmt.Fprintf(w, "Heihei: version %2d\n", version)
-	fmt.Fprintf(w, "        at (%v, %v)\n", config.Latitude, config.Longitude)
+	latitude, longitude := location()
+	fmt.Fprintf(w, "        at (%v, %v)\n", latitude, longitude)
 	fmt.Fprintf(w, "        light is %v\n", light())
 	if isDevel() {
 		fmt.Fprintf(w, "        DEVEL\n")
@@ -92,7 +60,8 @@ func aboutHandler(w http.ResponseWriter, r *http.Request) {
 // sunset reports the time of sunset at the device location
 func sunsetHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("* sunset request\n")
-	sunset, err := sunsetToday(config.Latitude, config.Longitude)
+	latitude, longitude := location()
+	sunset, err := sunsetToday(latitude, longitude)
 	if err != nil {
 		respond(w, err.Error(), http.StatusInternalServerError)
 		return
