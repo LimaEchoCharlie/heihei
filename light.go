@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"math/rand"
 	"time"
 )
 
@@ -46,8 +47,11 @@ func setLight(on bool) {
 
 // setLightFirDuration sets the light to on and reverts to the inverse state at the end of the duration
 func setLightForDuration(on bool, d time.Duration) {
+	r := rand.Intn(1000)
+	logger.Printf("[%03d] setLightForDuration start\n", r)
 	setLight(on)
 	f := func() {
+		logger.Printf("[%03d] setLightForDuration finish\n", r)
 		setLight(!on)
 	}
 	timer = time.AfterFunc(d, f)
