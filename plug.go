@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -30,8 +32,10 @@ var mutex = &sync.Mutex{}
 var pinError error
 
 // plug ids
+type plugID int
+
 const (
-	plugAll = iota
+	plugAll plugID = iota
 	plugOne
 	plugTwo
 )
@@ -82,8 +86,8 @@ func (p pin) on() (err error) {
 	return p.out(gpio.High)
 }
 
-// initPlug initialises the pins used to communicate with the plugs
-func initPlug() (err error) {
+// initPlugs initialises the pins used to communicate with the plugs
+func initPlugs() (err error) {
 	// lock mutex
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -110,9 +114,28 @@ func initPlug() (err error) {
 	return lastPinError()
 }
 
-// setPlug turns plug (with id) on or off
-func setPlug(id int, on bool) error {
-	// lock mutex
+type plug struct {
+	id      plugID
+	setChan chan bool
+	getChan chan bool
+	timer   *time.Timer
+}
+
+// newPlug creates a new variable to control the plug with the supplied id
+func newPlug(ctx context.Context, id plugID) plug {
+	l := plug{
+		setChan: make(chan bool),
+		getChan: make(chan bool),
+		id:      id,
+	}
+	go l.controller(ctx)
+	return l
+}
+
+// setPins turns plug on or off by setting the pins directly.
+// This function isn't intended to called from outside this file.
+func (l plug) setPins(on bool) error {
+	// lock pins
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -120,7 +143,7 @@ func setPlug(id int, on bool) error {
 	clearPinError()
 
 	// set d2-d1-d0 depending on which plug
-	switch id {
+	switch l.id {
 	case plugAll:
 		// 011
 		d2.off()
@@ -128,6 +151,7 @@ func setPlug(id int, on bool) error {
 		d0.on()
 	case plugOne:
 		// 111
+		logger.Println("plug one")
 		d2.on()
 		d1.on()
 		d0.on()
@@ -138,7 +162,7 @@ func setPlug(id int, on bool) error {
 		d0.off()
 	default:
 		// not recognised, return error
-		return fmt.Errorf("%d is not a valid plug id", id)
+		return fmt.Errorf("%d is not a valid plug id", l.id)
 	}
 
 	// set d3 depending on on/off
@@ -159,4 +183,53 @@ func setPlug(id int, on bool) error {
 	enable.off()
 
 	return lastPinError()
+}
+
+// controller manages the plug in a new go routine
+func (l plug) controller(ctx context.Context) {
+	// initialise the plugs
+	if err := initPlugs(); err != nil {
+		logger.Fatal(err)
+	}
+
+	// start with plug off
+	l.setPins(false)
+	currentState := false
+
+	go func() {
+		for {
+			select {
+
+			case newState := <-l.setChan:
+				l.setPins(newState)
+				currentState = newState
+			case l.getChan <- currentState:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+// set sets the plug
+func (l plug) set(on bool) {
+	logger.Printf("set %v\n", on)
+	l.setChan <- on
+}
+
+// setForDuration sets the plug to on and reverts to the inverse state at the end of the duration
+func (l plug) setForDuration(on bool, d time.Duration) {
+	r := rand.Intn(1000)
+	logger.Printf("[%03d] setForDuration start\n", r)
+	l.set(on)
+	f := func() {
+		logger.Printf("[%03d] setForDuration finish\n", r)
+		l.set(!on)
+	}
+	l.timer = time.AfterFunc(d, f)
+}
+
+// state returns the current status of the plug
+func (l plug) state() bool {
+	return <-l.getChan
 }

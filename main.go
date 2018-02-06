@@ -14,6 +14,10 @@ const (
 	version = 3
 )
 
+var (
+	lightOne plug
+)
+
 // sunsetToday returns the time of today's sunset in the system's local time
 func sunsetToday(latitude, longitude float64) (time.Time, error) {
 	now := time.Now()       // local time now
@@ -51,7 +55,7 @@ func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Heihei: version %2d\n", version)
 	latitude, longitude := location()
 	fmt.Fprintf(w, "        at (%v, %v)\n", latitude, longitude)
-	fmt.Fprintf(w, "        light is %v\n", light())
+	fmt.Fprintf(w, "        light is %v\n", lightOne.state())
 	if isDevel() {
 		fmt.Fprintf(w, "        DEVEL\n")
 	}
@@ -92,10 +96,10 @@ func lightModeHandler(w http.ResponseWriter, r *http.Request, on bool) {
 	}
 	if d := getDuration(r); d > 0 {
 		respond(w, fmt.Sprintf("%v for %v", d, msg), http.StatusOK)
-		setLightForDuration(on, d)
+		lightOne.setForDuration(on, d)
 	} else {
 		respond(w, msg, http.StatusOK)
-		setLight(on)
+		lightOne.set(on)
 	}
 }
 
@@ -141,7 +145,7 @@ func main() {
 	defer cancel()
 
 	// start the light controller
-	startLightController(ctx)
+	lightOne = newPlug(ctx, plugOne)
 
 	// register the handlers and listen
 	http.HandleFunc("/about", aboutHandler)
