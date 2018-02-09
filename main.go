@@ -50,7 +50,6 @@ func respond(w http.ResponseWriter, msg string, code int) {
 
 // about reports about the server
 func aboutHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Printf("* about request\n")
 	disableCache(w)
 	fmt.Fprintf(w, "Heihei: version %2d\n", version)
 	latitude, longitude := location()
@@ -63,7 +62,6 @@ func aboutHandler(w http.ResponseWriter, r *http.Request) {
 
 // sunset reports the time of sunset at the device location
 func sunsetHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Printf("* sunset request\n")
 	latitude, longitude := location()
 	sunset, err := sunsetToday(latitude, longitude)
 	if err != nil {
@@ -105,8 +103,6 @@ func lightModeHandler(w http.ResponseWriter, r *http.Request, on bool) {
 
 // lightHandler controls the RF controlled light
 func lightHandler(w http.ResponseWriter, r *http.Request) {
-	logger.Printf("* light request")
-
 	disableCache(w)
 
 	modes, ok := r.URL.Query()["mode"]
@@ -125,6 +121,15 @@ func lightHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	return
+}
+
+func logHandler(h http.Handler) http.HandlerFunc {
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			logger.Printf("-> %v: from %v\n", r.URL.Path, r.RemoteAddr)
+			h.ServeHTTP(w, r) // call original
+			logger.Printf("<- %v\n", r.URL.Path)
+		})
 }
 
 func main() {
@@ -148,8 +153,9 @@ func main() {
 	lightOne = newPlug(ctx, plugOne)
 
 	// register the handlers and listen
-	http.HandleFunc("/about", aboutHandler)
-	http.HandleFunc("/light", lightHandler)
-	http.HandleFunc("/sunset", sunsetHandler)
-	logger.Fatal(http.ListenAndServe(":8000", nil))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/about", aboutHandler)
+	mux.HandleFunc("/light", lightHandler)
+	mux.HandleFunc("/sunset", sunsetHandler)
+	logger.Fatal(http.ListenAndServe(":8000", logHandler(mux)))
 }
