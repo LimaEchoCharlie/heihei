@@ -32,6 +32,7 @@ var mutex = &sync.Mutex{}
 var pinError error
 
 // plug ids
+//go:generate stringer -type=plugID
 type plugID int
 
 const (
