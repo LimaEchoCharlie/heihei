@@ -6,33 +6,16 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
-	astro "github.com/kelvins/sunrisesunset"
 )
 
 const (
-	version = 3
+	version = 4
 )
 
 var (
 	lightOne plug
 	alarmOne alarm
 )
-
-// sunsetToday returns the time of today's sunset in the system's local time
-func sunsetToday(latitude, longitude float64) (time.Time, error) {
-	now := time.Now()       // local time now
-	_, offset := now.Zone() // offset in seconds
-
-	// GetSunriseSunset expects the UTC in units of hours
-	_, sunset, err := astro.GetSunriseSunset(latitude, longitude, float64(offset/3600), now)
-	if err != nil {
-		return sunset, err
-	}
-
-	// the date returned by GetSunriseSunset is the "zero" value so construct a new Time using the current time
-	return time.Date(now.Year(), now.Month(), now.Day(), sunset.Hour(), sunset.Minute(), sunset.Second(), 0, now.Location()), nil
-}
 
 // disableCache disables the client cache so that a request is sent to the server each and every time
 func disableCache(w http.ResponseWriter) {
@@ -56,20 +39,41 @@ func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	latitude, longitude := location()
 	fmt.Fprintf(w, "        at (%v, %v)\n", latitude, longitude)
 	fmt.Fprintf(w, "        light is %v\n", lightOne.state())
+	fmt.Fprintf(w, "        alarm is %v\n", alarmOne.isSet())
 	if isDevel() {
 		fmt.Fprintf(w, "        DEVEL\n")
 	}
 }
 
+// sunsetFormatter is a utility function to format a sunset
+func sunsetFormatter(when string, sunset time.Time) string {
+	return fmt.Sprintf("%s %s", when, sunset.Format("(Monday 2 January 2006) sunset is approximately at 15:04:05 MST"))
+}
+
 // sunset reports the time of sunset at the device location
 func sunsetHandler(w http.ResponseWriter, r *http.Request) {
 	latitude, longitude := location()
-	sunset, err := sunsetToday(latitude, longitude)
+	var err error
+	yesterday, err := sunset(latitude, longitude, -1)
 	if err != nil {
 		respond(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	respond(w, sunset.Format("Today's (Monday 2 January 2006) sunset is approximately at 15:04:05 MST"), http.StatusOK)
+	today, err := sunset(latitude, longitude, 0)
+	if err != nil {
+		respond(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	tomorrow, err := sunset(latitude, longitude, 1)
+	if err != nil {
+		respond(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	msg := fmt.Sprintf("%s\n%s\n%s",
+		sunsetFormatter("Yeserday's", yesterday),
+		sunsetFormatter("Today's", today),
+		sunsetFormatter("Tomorrow's", tomorrow))
+	respond(w, msg, http.StatusOK)
 }
 
 // getDuration extracts a duration from the query
@@ -148,6 +152,7 @@ func alarmHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// logHandler is a http handler wrapper for logging
 func logHandler(h http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
