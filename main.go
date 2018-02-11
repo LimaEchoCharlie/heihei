@@ -16,6 +16,7 @@ const (
 
 var (
 	lightOne plug
+	alarmOne alarm
 )
 
 // sunsetToday returns the time of today's sunset in the system's local time
@@ -123,6 +124,30 @@ func lightHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// alarmHandler controls the alarm
+func alarmHandler(w http.ResponseWriter, r *http.Request) {
+	disableCache(w)
+
+	query, ok := r.URL.Query()["set"]
+	if !ok || len(query) < 1 {
+		respond(w, "Missing 'set' value", http.StatusUnprocessableEntity)
+		return
+	}
+
+	switch query[0] {
+	case "on":
+		alarmOne.set(true)
+		respond(w, "Alarm set", http.StatusOK)
+	case "off":
+		alarmOne.set(false)
+		respond(w, "Alarm unset", http.StatusOK)
+	default:
+		respond(w, fmt.Sprintf("Unknown 'set' value '%v'", query[0]), http.StatusUnprocessableEntity)
+		return
+	}
+	return
+}
+
 func logHandler(h http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
@@ -152,10 +177,14 @@ func main() {
 	// start the light controller
 	lightOne = newPlug(ctx, plugOne)
 
+	// create an alarm
+	alarmOne = newAlarm(ctx, time.Minute)
+
 	// register the handlers and listen
 	mux := http.NewServeMux()
 	mux.HandleFunc("/about", aboutHandler)
 	mux.HandleFunc("/light", lightHandler)
+	mux.HandleFunc("/alarm", alarmHandler)
 	mux.HandleFunc("/sunset", sunsetHandler)
 	logger.Fatal(http.ListenAndServe(":8000", logHandler(mux)))
 }
