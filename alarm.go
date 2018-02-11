@@ -34,8 +34,8 @@ func newAlarm(ctx context.Context, accuracy time.Duration) alarm {
 					logger.Printf("%v\n", now)
 				}
 			case <-ctx.Done():
-				close(setC)
-				close(isSetC)
+				close( a.setC)
+				close( a.isSetC)
 				a.ticker.Stop()
 			}
 		}
