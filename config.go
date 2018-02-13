@@ -6,11 +6,9 @@ import (
 	"path/filepath"
 )
 
-var config = configuration{}
+var loc [2]float64 // the [latitude, longitude] of the device
 
-type configuration struct {
-	Location [2]float64 // the [latitude, longitude] of the device
-}
+const configFilename = "configuration.json"
 
 // loadConfiguration loads the server configuration
 func loadConfiguration() error {
@@ -21,21 +19,30 @@ func loadConfiguration() error {
 	}
 	path := filepath.Dir(ex)
 
-	file, err := os.Open(filepath.Join(path, "configuration.json"))
+	file, err := os.Open(filepath.Join(path, configFilename))
 	if err != nil {
 		return err
 	}
 
+	// use pointers for required values
+	config := struct {
+		Location *[2]float64
+	}{}
 	// decode json
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&config)
 	if err != nil {
 		return err
 	}
+
+	if config.Location == nil {
+		logger.Panicf("Location is missing from %v\n", configFilename)
+	}
+	loc = *config.Location
 	return nil
 }
 
 // location returns the latitude and longitude of the device
 func location() (float64, float64) {
-	return config.Location[0], config.Location[1]
+	return loc[0], loc[1]
 }
