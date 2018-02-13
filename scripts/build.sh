@@ -11,6 +11,8 @@ done
 go generate
 
 if [ "$isDevel" = true ]; then
+    echo "go test"
+    go test
     echo "devel build"
     go build -ldflags "-X main.devel=yes"
 else

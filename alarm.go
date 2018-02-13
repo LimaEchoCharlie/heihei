@@ -34,8 +34,8 @@ func newAlarm(ctx context.Context, accuracy time.Duration) alarm {
 					logger.Printf("%v\n", now)
 				}
 			case <-ctx.Done():
-				close( a.setC)
-				close( a.isSetC)
+				close(a.setC)
+				close(a.isSetC)
 				a.ticker.Stop()
 			}
 		}
@@ -67,4 +67,20 @@ func sunset(latitude, longitude float64, dayOffset int) (time.Time, error) {
 
 	// the date returned by GetSunriseSunset is the "zero" value so construct a new Time using the current time
 	return time.Date(now.Year(), now.Month(), now.Day(), sunset.Hour(), sunset.Minute(), sunset.Second(), 0, now.Location()), nil
+}
+
+// nextTime returns the first time at hour:minute after the given day i.e.
+// 		if day is earlier than hour:minute than a time on that day is returned
+// 		otherwise, a time on the next day is returned
+func nextTime(baseTime time.Time, hour, minute int) (new time.Time) {
+	new = time.Date(baseTime.Year(), baseTime.Month(), baseTime.Day(), hour, minute, 0, 0, baseTime.Location())
+
+	if new.After(baseTime) {
+
+		return
+
+	}
+
+	// does Date normalise? Yes
+	return time.Date(baseTime.Year(), baseTime.Month(), baseTime.Day()+1, hour, minute, 0, 0, baseTime.Location())
 }
