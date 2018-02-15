@@ -76,11 +76,9 @@ func nextTime(baseTime time.Time, hour, minute int) (new time.Time) {
 	new = time.Date(baseTime.Year(), baseTime.Month(), baseTime.Day(), hour, minute, 0, 0, baseTime.Location())
 
 	if new.After(baseTime) {
-
 		return
-
 	}
 
 	// does Date normalise? Yes
-	return time.Date(baseTime.Year(), baseTime.Month(), baseTime.Day()+1, hour, minute, 0, 0, baseTime.Location())
+	return new.AddDate(0, 0, 1)
 }
