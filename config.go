@@ -3,62 +3,54 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io"
 	"regexp"
 	"strconv"
 )
 
-var loc [2]float64 // the [latitude, longitude] of the device
-var lightsOut string
+type configuration struct {
+	location  [2]float64 // the [latitude, longitude] of the device
+	lightsOut string
+}
 
-const configFilename = "configuration.json"
+// latLong returns the latitude and longitude of the device
+func (c configuration) latLong() (float64, float64) {
+	return c.location[0], c.location[1]
+}
 
-// loadConfiguration loads the server configuration
-func loadConfiguration() error {
-	// get the directory of the executable
-	ex, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	path := filepath.Dir(ex)
-
-	file, err := os.Open(filepath.Join(path, configFilename))
-	if err != nil {
-		return err
-	}
+// getConfiguration extracts the server configuration
+func getConfiguration(file io.Reader) (config configuration, err error) {
 
 	// use pointers for required values
-	config := struct {
+	ptrConfig := struct {
 		Location  *[2]float64 `json:"location"`
 		LightsOut *string     `json:"lights_out"`
 	}{}
 	// decode json
 	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&config)
+	err = decoder.Decode(&ptrConfig)
 	if err != nil {
-		return err
+		return
 	}
 
-	if config.Location == nil {
-		logger.Panicf("Location is missing from %v\n", configFilename)
+	if ptrConfig.Location == nil {
+		err = fmt.Errorf("Location is missing from configuration")
+		return
 	}
-	loc = *config.Location
 
 	// check that a lights out value has been supplied and that it has a valid syntax
-	if config.LightsOut == nil {
-		logger.Panicf("lights out is missing from %v\n", configFilename)
-	} else if _, _, err = decodeClock(*config.LightsOut); err != nil {
-		logger.Panicf("lights out value from %v: %v\n", configFilename, err)
+	if ptrConfig.LightsOut == nil {
+		err = fmt.Errorf("Lights out is missing from configuration")
+		return
+	} else if _, _, err = decodeClock(*ptrConfig.LightsOut); err != nil {
+		err = fmt.Errorf("Lights out value from configuration decoding error; %s", err)
+		return
 	}
-	lightsOut = *config.LightsOut
 
-	return nil
-}
+	config.location = *ptrConfig.Location
+	config.lightsOut = *ptrConfig.LightsOut
 
-// location returns the latitude and longitude of the device
-func location() (float64, float64) {
-	return loc[0], loc[1]
+	return
 }
 
 var pattern = regexp.MustCompile("^([0-9]{1,2}):([0-9]{2})$")

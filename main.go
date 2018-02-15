@@ -4,17 +4,21 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
 
 const (
-	version = 4
+	version        = 4
+	configFilename = "configuration.json"
 )
 
 var (
 	lightOne plug
 	alarmOne alarm
+	config   configuration
 )
 
 // disableCache disables the client cache so that a request is sent to the server each and every time
@@ -36,7 +40,7 @@ func respond(w http.ResponseWriter, msg string, code int) {
 func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	disableCache(w)
 	fmt.Fprintf(w, "Heihei: version %2d\n", version)
-	latitude, longitude := location()
+	latitude, longitude := config.latLong()
 	fmt.Fprintf(w, "        at (%v, %v)\n", latitude, longitude)
 	fmt.Fprintf(w, "        light is %v\n", lightOne.state())
 	fmt.Fprintf(w, "        alarm is %v\n", alarmOne.isSet())
@@ -52,7 +56,7 @@ func sunsetFormatter(when string, sunset time.Time) string {
 
 // sunset reports the time of sunset at the device location
 func sunsetHandler(w http.ResponseWriter, r *http.Request) {
-	latitude, longitude := location()
+	latitude, longitude := config.latLong()
 	var err error
 	yesterday, err := sunset(latitude, longitude, -1)
 	if err != nil {
@@ -163,6 +167,8 @@ func logHandler(h http.Handler) http.HandlerFunc {
 }
 
 func main() {
+	var err error
+
 	// initialise logging
 	if err := initLogging(); err != nil {
 		panic(err)
@@ -172,8 +178,21 @@ func main() {
 	logger.Printf("***************\n")
 	logger.Printf("starting Heihei\n")
 
+	// get the directory of the executable
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	path := filepath.Dir(ex)
+
+	configFile, err := os.Open(filepath.Join(path, configFilename))
+	if err != nil {
+		panic(err)
+	}
+
 	// load the configuration
-	if err := loadConfiguration(); err != nil {
+	config, err = getConfiguration(configFile)
+	if err != nil {
 		logger.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
