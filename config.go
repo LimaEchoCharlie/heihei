@@ -23,8 +23,8 @@ func getConfiguration(file io.Reader) (config configuration, err error) {
 
 	// use pointers for required values
 	ptrConfig := struct {
-		Location  *[2]float64 `json:"location"`
-		LightsOut *string     `json:"lights_out"`
+		Location  *[]float64 `json:"location"`
+		LightsOut *string    `json:"lights_out"`
 	}{}
 	// decode json
 	decoder := json.NewDecoder(file)
@@ -33,8 +33,12 @@ func getConfiguration(file io.Reader) (config configuration, err error) {
 		return
 	}
 
+	// check that a location has been supplied and that it has a length of 2
 	if ptrConfig.Location == nil {
 		err = fmt.Errorf("Location is missing from configuration")
+		return
+	} else if len(*ptrConfig.Location) != 2 {
+		err = fmt.Errorf("Location should contain 2 elements; not %d", len(*ptrConfig.Location))
 		return
 	}
 
@@ -47,7 +51,7 @@ func getConfiguration(file io.Reader) (config configuration, err error) {
 		return
 	}
 
-	config.location = *ptrConfig.Location
+	copy(config.location[:], (*ptrConfig.Location)[0:2])
 	config.lightsOut = *ptrConfig.LightsOut
 
 	return
