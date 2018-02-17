@@ -58,7 +58,8 @@ const (
 	bedtime = "23:34"
 )
 
-var validConfig = fmt.Sprintf(`{"location":[%f, %f], "lights_out":"%s"}`, magNLat, magNLon, bedtime)
+var validConfig = fmt.Sprintf(`{"location":[%f, %f], "lights_out":"%s", "log_to_stdout":true}`,
+	magNLat, magNLon, bedtime)
 
 func TestGetConfigError(t *testing.T) {
 
@@ -108,5 +109,16 @@ func TestGetConfigLightsOut(t *testing.T) {
 	}
 	if config.lightsOut != bedtime {
 		t.Errorf("Got lights out at %v; but bedtime is %v", config.lightsOut, bedtime)
+	}
+}
+
+func TestGetConfigLogToStdout(t *testing.T) {
+	buf := bytes.NewBufferString(validConfig)
+	config, err := getConfiguration(buf)
+	if err != nil {
+		t.Errorf("unexpected error %v", err)
+	}
+	if !config.logToStdout {
+		t.Errorf("log to stdout is false; expected true")
 	}
 }

@@ -9,8 +9,9 @@ import (
 )
 
 type configuration struct {
-	location  [2]float64 // the [latitude, longitude] of the device
-	lightsOut string
+	location    [2]float64 // the [latitude, longitude] of the device
+	lightsOut   string
+	logToStdout bool
 }
 
 // latLong returns the latitude and longitude of the device
@@ -23,8 +24,9 @@ func getConfiguration(file io.Reader) (config configuration, err error) {
 
 	// use pointers for required values
 	ptrConfig := struct {
-		Location  *[]float64 `json:"location"`
-		LightsOut *string    `json:"lights_out"`
+		Location    *[]float64 `json:"location"`
+		LightsOut   *string    `json:"lights_out"`
+		LogToStdout bool       `json:"log_to_stdout"`
 	}{}
 	// decode json
 	decoder := json.NewDecoder(file)
@@ -53,6 +55,7 @@ func getConfiguration(file io.Reader) (config configuration, err error) {
 
 	copy(config.location[:], (*ptrConfig.Location)[0:2])
 	config.lightsOut = *ptrConfig.LightsOut
+	config.logToStdout = ptrConfig.LogToStdout
 
 	return
 }

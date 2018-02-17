@@ -24,7 +24,12 @@ var (
 	mode = pin{rpi.P1_18}
 	// modulator enable
 	enable = pin{rpi.P1_22}
+	devel  string
 )
+
+func isDevel() bool {
+	return devel != ""
+}
 
 // mutex to protect pin writes
 var mutex = &sync.Mutex{}

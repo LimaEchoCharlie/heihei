@@ -184,9 +184,20 @@ func main() {
 	}
 	path := filepath.Dir(ex)
 
+	// load the configuration
+	configFile, err := os.Open(filepath.Join(path, configFilename))
+	if err != nil {
+		panic(err)
+	}
+
+	config, err = getConfiguration(configFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// initialise logging
 	logfile := os.Stdout
-	if !isDevel() {
+	if !config.logToStdout {
 		logfile, err = os.OpenFile(filepath.Join(path, logFilename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			logfile = os.Stdout
@@ -199,16 +210,6 @@ func main() {
 	log.Printf("***************\n")
 	log.Printf("starting Heihei\n")
 
-	configFile, err := os.Open(filepath.Join(path, configFilename))
-	if err != nil {
-		panic(err)
-	}
-
-	// load the configuration
-	config, err = getConfiguration(configFile)
-	if err != nil {
-		log.Fatal(err)
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
