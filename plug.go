@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -72,7 +73,7 @@ func (p pin) out(l gpio.Level) (err error) {
 	err = p.Out(l)
 	setPinError(err)
 	if err != nil {
-		logger.Printf("%v %v failure %v\n", p, l, err)
+		log.Printf("%v %v failure %v\n", p, l, err)
 	}
 	return
 }
@@ -132,7 +133,7 @@ func newPlug(ctx context.Context, id plugID) plug {
 
 	// initialise the plugs
 	if err := initPlugs(); err != nil {
-		logger.Fatal(err)
+		log.Fatal(err)
 	}
 
 	// start with plug off
@@ -145,7 +146,7 @@ func newPlug(ctx context.Context, id plugID) plug {
 			select {
 
 			case newState := <-p.setChan:
-				logger.Printf("set %v %v\n", p.id, newState)
+				log.Printf("set %v %v\n", p.id, newState)
 				p.setPins(newState)
 				currentState = newState
 			case p.getChan <- currentState:
@@ -223,13 +224,13 @@ func (p *plug) set(on bool) {
 // setForDuration sets the plug to on and reverts to the inverse state at the end of the duration
 func (p *plug) setForDuration(on bool, d time.Duration) {
 	r := rand.Intn(1000)
-	logger.Printf("[%03d] setForDuration start\n", r)
+	log.Printf("[%03d] setForDuration start\n", r)
 	if p.timer != nil && p.timer.Stop() {
-		logger.Printf("[%03d] Stopped existing timer\n", r)
+		log.Printf("[%03d] Stopped existing timer\n", r)
 	}
 	p.set(on)
 	f := func() {
-		logger.Printf("[%03d] setForDuration finish\n", r)
+		log.Printf("[%03d] setForDuration finish\n", r)
 		p.set(!on)
 	}
 	p.timer = time.AfterFunc(d, f)

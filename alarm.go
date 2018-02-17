@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"time"
 
 	astro "github.com/kelvins/sunrisesunset"
@@ -31,7 +32,7 @@ func newAlarm(ctx context.Context, accuracy time.Duration) alarm {
 			case a.isSetC <- on:
 			case now := <-a.ticker.C:
 				if on {
-					logger.Printf("%v\n", now)
+					log.Printf("%v\n", now)
 				}
 			case <-ctx.Done():
 				close(a.setC)

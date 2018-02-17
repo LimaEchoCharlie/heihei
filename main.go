@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,8 +13,9 @@ import (
 )
 
 const (
-	version        = 4
+	version        = 5
 	configFilename = "configuration.json"
+	logFilename    = "heihei.log"
 )
 
 var (
@@ -21,6 +24,11 @@ var (
 	config   configuration
 )
 
+func init() {
+	// discard logging by default i.e. for unit testing
+	log.SetOutput(ioutil.Discard)
+}
+
 // disableCache disables the client cache so that a request is sent to the server each and every time
 func disableCache(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -28,7 +36,7 @@ func disableCache(w http.ResponseWriter) {
 
 // respond writes the http response and logs the action
 func respond(w http.ResponseWriter, msg string, code int) {
-	logger.Printf("Response [%v] %v\n", code, msg)
+	log.Printf("Response [%v] %v\n", code, msg)
 	if code == http.StatusOK {
 		fmt.Fprintln(w, msg)
 	} else {
@@ -96,7 +104,7 @@ func getDuration(r *http.Request) (d time.Duration) {
 
 // lightModeHandler deals with light requests when the mode is known
 func lightModeHandler(w http.ResponseWriter, r *http.Request, on bool) {
-	logger.Printf("mode = %v", on)
+	log.Printf("mode = %v", on)
 	msg := "off"
 	if on {
 		msg = "on"
@@ -160,23 +168,14 @@ func alarmHandler(w http.ResponseWriter, r *http.Request) {
 func logHandler(h http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			logger.Printf("-> %v: from %v\n", r.URL.Path, r.RemoteAddr)
+			log.Printf("-> %v: from %v\n", r.URL.Path, r.RemoteAddr)
 			h.ServeHTTP(w, r) // call original
-			logger.Printf("<- %v\n", r.URL.Path)
+			log.Printf("<- %v\n", r.URL.Path)
 		})
 }
 
 func main() {
 	var err error
-
-	// initialise logging
-	if err := initLogging(); err != nil {
-		panic(err)
-	}
-	defer stopLogging()
-
-	logger.Printf("***************\n")
-	logger.Printf("starting Heihei\n")
 
 	// get the directory of the executable
 	ex, err := os.Executable()
@@ -184,6 +183,21 @@ func main() {
 		panic(err)
 	}
 	path := filepath.Dir(ex)
+
+	// initialise logging
+	logfile := os.Stdout
+	if !isDevel() {
+		logfile, err = os.OpenFile(filepath.Join(path, logFilename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			logfile = os.Stdout
+		}
+	}
+	defer logfile.Close()
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	log.SetOutput(logfile)
+
+	log.Printf("***************\n")
+	log.Printf("starting Heihei\n")
 
 	configFile, err := os.Open(filepath.Join(path, configFilename))
 	if err != nil {
@@ -193,7 +207,7 @@ func main() {
 	// load the configuration
 	config, err = getConfiguration(configFile)
 	if err != nil {
-		logger.Fatal(err)
+		log.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -210,5 +224,5 @@ func main() {
 	mux.HandleFunc("/light", lightHandler)
 	mux.HandleFunc("/alarm", alarmHandler)
 	mux.HandleFunc("/sunset", sunsetHandler)
-	logger.Fatal(http.ListenAndServe(":8000", logHandler(mux)))
+	log.Fatal(http.ListenAndServe(":8000", logHandler(mux)))
 }
