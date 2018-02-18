@@ -7,35 +7,10 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-
-	"periph.io/x/periph/conn/gpio"
-	"periph.io/x/periph/host"
-	"periph.io/x/periph/host/rpi"
 )
-
-// pin definitions
-var (
-	// encoder (by board position)
-	d0 = pin{rpi.P1_11}
-	d1 = pin{rpi.P1_15}
-	d2 = pin{rpi.P1_16}
-	d3 = pin{rpi.P1_13}
-	// modulator mode
-	mode = pin{rpi.P1_18}
-	// modulator enable
-	enable = pin{rpi.P1_22}
-	devel  string
-)
-
-func isDevel() bool {
-	return devel != ""
-}
 
 // mutex to protect pin writes
 var mutex = &sync.Mutex{}
-
-// save last error
-var pinError error
 
 // plug ids
 //go:generate stringer -type=plugID
@@ -47,52 +22,6 @@ const (
 	plugTwo
 )
 
-type pin struct {
-	gpio.PinIO
-}
-
-// clearPinError clears the saved error related to pin operations
-func clearPinError() {
-	pinError = nil
-}
-
-// setPinError saves not nil errors
-func setPinError(err error) {
-	if err != nil {
-		pinError = err
-	}
-	return
-}
-
-// lastPinError returns the last error from a pin operation
-func lastPinError() error {
-	return pinError
-}
-
-// out changes the level of the pin
-func (p pin) out(l gpio.Level) (err error) {
-	if isDevel() {
-		return nil
-	}
-
-	err = p.Out(l)
-	setPinError(err)
-	if err != nil {
-		log.Printf("%v %v failure %v\n", p, l, err)
-	}
-	return
-}
-
-// off switches off the pin
-func (p pin) off() (err error) {
-	return p.out(gpio.Low)
-}
-
-// on switches on the pin
-func (p pin) on() (err error) {
-	return p.out(gpio.High)
-}
-
 // initPlugs initialises the pins used to communicate with the plugs
 func initPlugs() (err error) {
 	// lock mutex
@@ -103,7 +32,7 @@ func initPlugs() (err error) {
 	clearPinError()
 
 	// initialise periph
-	if _, err := host.Init(); err != nil {
+	if err := initHAL(); err != nil {
 		return err
 	}
 
