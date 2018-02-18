@@ -1,3 +1,5 @@
+// +build rapi
+
 package main
 
 import (
@@ -7,6 +9,8 @@ import (
 	"periph.io/x/periph/host"
 	"periph.io/x/periph/host/rpi"
 )
+
+const buildType = "rapi"
 
 // pin definitions
 var (
@@ -33,10 +37,7 @@ const (
 	pinHigh pinLevel = pinLevel(gpio.High)
 )
 
-func isDevel() bool {
-	return devel != ""
-}
-
+// initHAL initialises the hardware abstraction layer
 func initHAL() error {
 	_, err := host.Init()
 	return err
@@ -44,10 +45,6 @@ func initHAL() error {
 
 // setLevel changes the level of the pin
 func setLevel(p pin, l pinLevel) (err error) {
-	if isDevel() {
-		return nil
-	}
-
 	err = p.Out(gpio.Level(l))
 	if err != nil {
 		log.Printf("%v %v failure %v\n", p, l, err)

@@ -52,9 +52,7 @@ func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "        at (%v, %v)\n", latitude, longitude)
 	fmt.Fprintf(w, "        light is %v\n", lightOne.state())
 	fmt.Fprintf(w, "        alarm is %v\n", alarmOne.isSet())
-	if isDevel() {
-		fmt.Fprintf(w, "        DEVEL\n")
-	}
+	fmt.Fprintf(w, "        build type %s\n", buildType)
 }
 
 // sunsetFormatter is a utility function to format a sunset

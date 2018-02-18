@@ -7,15 +7,16 @@ for var in "$@"; do
     esac
 done
 
-# call go generate
-go generate
 
 if [ "$isDevel" = true ]; then
     echo "go test"
     go test
     echo "devel build"
-    go build -ldflags "-X main.devel=yes"
+    # call go generate
+    go generate
+    go build
 else
     echo "release build"
-    GOOS=linux GOARCH=arm GOARM=7 go build
+    go generate -tags 'rapi'
+    GOOS=linux GOARCH=arm GOARM=7 go build -tags 'rapi'
 fi
