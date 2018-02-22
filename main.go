@@ -192,7 +192,7 @@ func main() {
 
 	config, err = getConfiguration(configFile)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	// initialise logging

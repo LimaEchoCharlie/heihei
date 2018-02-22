@@ -12,9 +12,9 @@ go generate
 
 if [ "$isDevel" = true ]; then
     echo "go test"
-    go test
+    go test -race
     echo "devel build"
-    go build -ldflags "-X main.devel=yes"
+    go build -race -ldflags "-X main.devel=yes"
 else
     echo "release build"
     GOOS=linux GOARCH=arm GOARM=7 go build
