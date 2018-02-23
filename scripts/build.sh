@@ -7,14 +7,14 @@ for var in "$@"; do
     esac
 done
 
+# call go generate
+go generate
 
 if [ "$isDevel" = true ]; then
     echo "go test"
-    go test
+    go test -race -cover
     echo "devel build"
-    # call go generate
-    go generate
-    go build
+    go build -race
 else
     echo "release build"
     go generate -tags 'rapi'

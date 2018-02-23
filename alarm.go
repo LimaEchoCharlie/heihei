@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -82,4 +83,15 @@ func nextTime(baseTime time.Time, hour, minute int) (new time.Time) {
 
 	// does Date normalise? Yes
 	return new.AddDate(0, 0, 1)
+}
+
+// newNotification that creates a timer that will fire roughly at the given time t
+// An error is returned if t is in the past
+func newNotification( t time.Time ) (*time.Timer, error){
+    d := t.Sub( time.Now() )
+    if d < 0 {
+        return nil, fmt.Errorf("time is in the past: %v", t)
+    }
+    log.Printf("notification set that will fire in %v\n", d)
+    return time.NewTimer(d), nil
 }

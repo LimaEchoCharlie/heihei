@@ -162,6 +162,37 @@ func alarmHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// notifyHandler controls the alarm
+func notifyHandler(w http.ResponseWriter, r *http.Request) {
+	disableCache(w)
+
+	query, ok := r.URL.Query()["time"]
+	if !ok || len(query) < 1 {
+		respond(w, "Missing 'time' value", http.StatusUnprocessableEntity)
+		return
+	} 
+
+        hour, minute, err := decodeClock( query[0] )
+	if err != nil {
+		respond(w, "Invalid 'time' value", http.StatusUnprocessableEntity)
+		return
+	} 
+
+        timer, err := newNotification( nextTime( time.Now(), hour, minute ) )
+	if err != nil {
+		respond(w, "Notification error", http.StatusInternalServerError)
+		return
+	} 
+
+        go func() {
+            <- timer.C
+            log.Println( "notification fired")
+        }()
+
+        respond(w, "Notification set", http.StatusOK)
+	return
+}
+
 // logHandler is a http handler wrapper for logging
 func logHandler(h http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(
@@ -190,7 +221,7 @@ func main() {
 
 	config, err = getConfiguration(configFile)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	// initialise logging
@@ -223,5 +254,6 @@ func main() {
 	mux.HandleFunc("/light", lightHandler)
 	mux.HandleFunc("/alarm", alarmHandler)
 	mux.HandleFunc("/sunset", sunsetHandler)
+	mux.HandleFunc("/notify", notifyHandler)
 	log.Fatal(http.ListenAndServe(":8000", logHandler(mux)))
 }
