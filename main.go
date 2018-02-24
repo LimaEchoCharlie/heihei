@@ -162,7 +162,7 @@ func alarmHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// notifyHandler controls the alarm
+// notifyHandler sets a notification
 func notifyHandler(w http.ResponseWriter, r *http.Request) {
 	disableCache(w)
 
@@ -170,27 +170,41 @@ func notifyHandler(w http.ResponseWriter, r *http.Request) {
 	if !ok || len(query) < 1 {
 		respond(w, "Missing 'time' value", http.StatusUnprocessableEntity)
 		return
-	} 
+	}
 
-        hour, minute, err := decodeClock( query[0] )
+	hour, minute, err := decodeClock(query[0])
 	if err != nil {
 		respond(w, "Invalid 'time' value", http.StatusUnprocessableEntity)
 		return
-	} 
+	}
 
-        timer, err := newNotification( nextTime( time.Now(), hour, minute ) )
+	timer, err := newNotification(nextTime(time.Now(), hour, minute))
 	if err != nil {
 		respond(w, "Notification error", http.StatusInternalServerError)
 		return
-	} 
+	}
 
-        go func() {
-            <- timer.C
-            log.Println( "notification fired")
-        }()
+	go func() {
+		<-timer.C
+		log.Println("notification fired")
+	}()
 
-        respond(w, "Notification set", http.StatusOK)
+	respond(w, "Notification set", http.StatusOK)
 	return
+}
+
+// fileHandlerFunc outputs the file with path to the browser
+func fileHandlerFunc(path string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		disableCache(w)
+		content, err := ioutil.ReadFile(path)
+		if err != nil {
+			respond(w, fmt.Sprintf("file at \"%s\": %s", path, err), http.StatusInternalServerError)
+		}
+		// don't use respond as this will write file to the logfile
+		fmt.Fprintf(w, "%s", content)
+		return
+	}
 }
 
 // logHandler is a http handler wrapper for logging
@@ -214,7 +228,8 @@ func main() {
 	path := filepath.Dir(ex)
 
 	// load the configuration
-	configFile, err := os.Open(filepath.Join(path, configFilename))
+	configFilePath := filepath.Join(path, configFilename)
+	configFile, err := os.Open(configFilePath)
 	if err != nil {
 		panic(err)
 	}
@@ -226,8 +241,10 @@ func main() {
 
 	// initialise logging
 	logfile := os.Stdout
+	var logFilePath string
 	if !config.logToStdout {
-		logfile, err = os.OpenFile(filepath.Join(path, logFilename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		logFilePath = filepath.Join(path, logFilename)
+		logfile, err = os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			logfile = os.Stdout
 		}
@@ -255,5 +272,7 @@ func main() {
 	mux.HandleFunc("/alarm", alarmHandler)
 	mux.HandleFunc("/sunset", sunsetHandler)
 	mux.HandleFunc("/notify", notifyHandler)
+	mux.HandleFunc("/logfile", fileHandlerFunc(logFilePath))
+	mux.HandleFunc("/config", fileHandlerFunc(configFilePath))
 	log.Fatal(http.ListenAndServe(":8000", logHandler(mux)))
 }

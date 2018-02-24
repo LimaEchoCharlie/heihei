@@ -2,7 +2,7 @@
 
 package main
 
-import "strconv"
+import "fmt"
 
 const _plugID_name = "plugAllplugOneplugTwo"
 
@@ -10,7 +10,7 @@ var _plugID_index = [...]uint8{0, 7, 14, 21}
 
 func (i plugID) String() string {
 	if i < 0 || i >= plugID(len(_plugID_index)-1) {
-		return "plugID(" + strconv.FormatInt(int64(i), 10) + ")"
+		return fmt.Sprintf("plugID(%d)", i)
 	}
 	return _plugID_name[_plugID_index[i]:_plugID_index[i+1]]
 }
