@@ -86,7 +86,8 @@ func sunsetHandler(w http.ResponseWriter, r *http.Request) {
 	respond(w, msg, http.StatusOK)
 }
 
-// getDuration extracts a duration from the query
+// getDuration extracts a duration from the query; only positive values are returned
+// zero is returned if an error occurs
 func getDuration(r *http.Request) (d time.Duration) {
 	var secs int
 	vals, ok := r.URL.Query()["secs"]
@@ -96,6 +97,9 @@ func getDuration(r *http.Request) (d time.Duration) {
 	secs, err := strconv.Atoi(vals[0])
 	if err != nil {
 		return 0
+	}
+	if secs < 0 {
+		secs = 0
 	}
 	return time.Duration(secs) * time.Second
 }
