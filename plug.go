@@ -58,8 +58,8 @@ type plug struct {
 }
 
 // newPlug creates a new variable to control the plug with the supplied id
-func newPlug(ctx context.Context, id plugID) plug {
-	p := plug{
+func newPlug(ctx context.Context, id plugID) *plug {
+	p := &plug{
 		setChan: make(chan bool),
 		getChan: make(chan bool),
 		id:      id,
